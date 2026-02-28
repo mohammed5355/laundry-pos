@@ -8,10 +8,28 @@ class LaundryDatabase extends Dexie {
 
   constructor() {
     super('LaundryPOS');
-    this.version(1).stores({
+    this.version(2).stores({
       orders: 'id, orderNumber, customerName, phoneNumber, status, pickupDate, createdAt, updatedAt',
       orderItems: 'id, orderId',
-      servicePrices: 'id, itemType, serviceType, createdAt, updatedAt',
+      servicePrices: 'id, itemType, serviceType, imageUrl, createdAt, updatedAt',
+    }).upgrade(async (trans) => {
+      // Migration: Add imageUrl to existing ServicePrice records
+      const prices = await trans.table('servicePrices').toArray();
+      const iconMapping: Record<string, string> = {
+        thobe: 'User',
+        shirt: 'Shirt',
+        suit: 'Briefcase',
+        blanket: 'Layers',
+        jacket: 'Shield',
+        pants: 'RectangleVertical',
+        dress: 'Gem',
+        other: 'Package',
+      };
+      await Promise.all(prices.map(price =>
+        trans.table('servicePrices').update(price.id!, {
+          imageUrl: iconMapping[price.itemType] || 'Package'
+        })
+      ));
     });
   }
 
@@ -127,46 +145,58 @@ class LaundryDatabase extends Dexie {
     const existingPrices = await this.servicePrices.count();
     if (existingPrices > 0) return;
 
+    // Icon mapping for item types
+    const iconMapping: Record<string, string> = {
+      thobe: 'User',
+      shirt: 'Shirt',
+      suit: 'Briefcase',
+      blanket: 'Layers',
+      jacket: 'Shield',
+      pants: 'RectangleVertical',
+      dress: 'Gem',
+      other: 'Package',
+    };
+
     const defaultPrices: Omit<ServicePrice, 'id'>[] = [
       // ثوب - Thobe
-      { itemType: 'thobe', serviceType: 'wash_iron', price: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'thobe', serviceType: 'iron_only', price: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'thobe', serviceType: 'dry_clean', price: 8, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'thobe', serviceType: 'wash_iron', price: 5, imageUrl: iconMapping.thobe, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'thobe', serviceType: 'iron_only', price: 3, imageUrl: iconMapping.thobe, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'thobe', serviceType: 'dry_clean', price: 8, imageUrl: iconMapping.thobe, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // قميص - Shirt
-      { itemType: 'shirt', serviceType: 'wash_iron', price: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'shirt', serviceType: 'iron_only', price: 2, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'shirt', serviceType: 'dry_clean', price: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'shirt', serviceType: 'wash_iron', price: 3, imageUrl: iconMapping.shirt, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'shirt', serviceType: 'iron_only', price: 2, imageUrl: iconMapping.shirt, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'shirt', serviceType: 'dry_clean', price: 5, imageUrl: iconMapping.shirt, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // بدلة - Suit
-      { itemType: 'suit', serviceType: 'wash_iron', price: 15, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'suit', serviceType: 'iron_only', price: 10, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'suit', serviceType: 'dry_clean', price: 25, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'suit', serviceType: 'wash_iron', price: 15, imageUrl: iconMapping.suit, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'suit', serviceType: 'iron_only', price: 10, imageUrl: iconMapping.suit, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'suit', serviceType: 'dry_clean', price: 25, imageUrl: iconMapping.suit, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // بطانية - Blanket
-      { itemType: 'blanket', serviceType: 'wash_iron', price: 25, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'blanket', serviceType: 'iron_only', price: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'blanket', serviceType: 'dry_clean', price: 40, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'blanket', serviceType: 'wash_iron', price: 25, imageUrl: iconMapping.blanket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'blanket', serviceType: 'iron_only', price: 0, imageUrl: iconMapping.blanket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'blanket', serviceType: 'dry_clean', price: 40, imageUrl: iconMapping.blanket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // جاكيت - Jacket
-      { itemType: 'jacket', serviceType: 'wash_iron', price: 8, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'jacket', serviceType: 'iron_only', price: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'jacket', serviceType: 'dry_clean', price: 15, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'jacket', serviceType: 'wash_iron', price: 8, imageUrl: iconMapping.jacket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'jacket', serviceType: 'iron_only', price: 5, imageUrl: iconMapping.jacket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'jacket', serviceType: 'dry_clean', price: 15, imageUrl: iconMapping.jacket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // بنطلون - Pants
-      { itemType: 'pants', serviceType: 'wash_iron', price: 4, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'pants', serviceType: 'iron_only', price: 2, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'pants', serviceType: 'dry_clean', price: 6, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'pants', serviceType: 'wash_iron', price: 4, imageUrl: iconMapping.pants, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'pants', serviceType: 'iron_only', price: 2, imageUrl: iconMapping.pants, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'pants', serviceType: 'dry_clean', price: 6, imageUrl: iconMapping.pants, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // فستان - Dress
-      { itemType: 'dress', serviceType: 'wash_iron', price: 10, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'dress', serviceType: 'iron_only', price: 6, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'dress', serviceType: 'dry_clean', price: 18, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'dress', serviceType: 'wash_iron', price: 10, imageUrl: iconMapping.dress, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'dress', serviceType: 'iron_only', price: 6, imageUrl: iconMapping.dress, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'dress', serviceType: 'dry_clean', price: 18, imageUrl: iconMapping.dress, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 
       // أخرى - Other
-      { itemType: 'other', serviceType: 'wash_iron', price: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'other', serviceType: 'iron_only', price: 3, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      { itemType: 'other', serviceType: 'dry_clean', price: 10, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'other', serviceType: 'wash_iron', price: 5, imageUrl: iconMapping.other, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'other', serviceType: 'iron_only', price: 3, imageUrl: iconMapping.other, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+      { itemType: 'other', serviceType: 'dry_clean', price: 10, imageUrl: iconMapping.other, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
     ];
 
     await this.servicePrices.bulkAdd(defaultPrices);

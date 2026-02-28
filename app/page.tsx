@@ -16,6 +16,13 @@ import {
   Printer,
   Save,
   ArrowLeft,
+  User,
+  Shirt,
+  Briefcase,
+  Layers,
+  Shield,
+  RectangleVertical,
+  Gem,
 } from 'lucide-react';
 
 // Arabic labels
@@ -59,10 +66,6 @@ export default function Home() {
   });
   const [prices, setPrices] = useState<Record<string, number>>({});
   const [orders, setOrders] = useState<Order[]>([]);
-  const [selectedItem, setSelectedItem] = useState<{ itemType: ItemType; serviceType: ServiceType }>({
-    itemType: 'thobe',
-    serviceType: 'wash_iron',
-  });
 
   const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
   const [report, setReport] = useState<any>(null);
@@ -95,11 +98,25 @@ export default function Home() {
     return prices[`${itemType}-${serviceType}`] || 5;
   };
 
-  const addItem = () => {
-    const price = getCurrentPrice(selectedItem.itemType, selectedItem.serviceType);
+  const getIconForItemType = (itemType: ItemType) => {
+    const icons: Record<ItemType, any> = {
+      thobe: User,
+      shirt: Shirt,
+      suit: Briefcase,
+      blanket: Layers,
+      jacket: Shield,
+      pants: RectangleVertical,
+      dress: Gem,
+      other: Package,
+    };
+    return icons[itemType] || Package;
+  };
+
+  const addQuickItem = (itemType: ItemType, serviceType: ServiceType) => {
+    const price = getCurrentPrice(itemType, serviceType);
     const newItem: OrderItem = {
-      itemType: selectedItem.itemType,
-      serviceType: selectedItem.serviceType,
+      itemType,
+      serviceType,
       price,
       quantity: 1,
     };
@@ -269,45 +286,25 @@ export default function Home() {
           <div className="mt-6 pt-6 border-t border-gray-100">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">إضافة قطعة</h2>
 
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">نوع القطعة</label>
-                <select
-                  value={selectedItem.itemType}
-                  onChange={(e) => setSelectedItem({ ...selectedItem, itemType: e.target.value as ItemType })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  {Object.entries(itemTypes).map(([key, value]) => (
-                    <option key={key} value={key}>{value}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">نوع الخدمة</label>
-                <select
-                  value={selectedItem.serviceType}
-                  onChange={(e) => setSelectedItem({ ...selectedItem, serviceType: e.target.value as ServiceType })}
-                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                >
-                  {Object.entries(serviceTypes).map(([key, value]) => (
-                    <option key={key} value={key}>{value}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between bg-primary-50 rounded-lg p-4">
-              <div className="text-primary-700 font-medium">
-                السعر: {getCurrentPrice(selectedItem.itemType, selectedItem.serviceType)} ريال
-              </div>
-              <button
-                onClick={addItem}
-                className="flex items-center gap-2 bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition-colors"
-              >
-                <Plus size={20} />
-                إضافة
-              </button>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {Object.entries(itemTypes).map(([itemTypeKey, itemLabel]) =>
+                Object.entries(serviceTypes).map(([serviceTypeKey, serviceLabel]) => {
+                  const price = getCurrentPrice(itemTypeKey as ItemType, serviceTypeKey as ServiceType);
+                  const Icon = getIconForItemType(itemTypeKey as ItemType);
+                  return (
+                    <button
+                      key={`${itemTypeKey}-${serviceTypeKey}`}
+                      onClick={() => addQuickItem(itemTypeKey as ItemType, serviceTypeKey as ServiceType)}
+                      className="bg-white rounded-xl shadow-sm hover:shadow-md border-2 border-transparent hover:border-primary-500 p-4 transition-all duration-200 flex flex-col items-center gap-2 group active:scale-95"
+                    >
+                      <Icon size={40} className="text-primary-500 group-hover:scale-110 transition-transform" />
+                      <div className="text-sm font-medium text-gray-700 text-center">{itemLabel}</div>
+                      <div className="text-xs text-gray-500">{serviceLabel}</div>
+                      <div className="text-lg font-bold text-primary-600">{price} ريال</div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

@@ -37,6 +37,7 @@ export interface ServicePrice {
   itemType: ItemType;
   serviceType: ServiceType;
   price: number;
+  imageUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
