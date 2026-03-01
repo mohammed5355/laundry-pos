@@ -180,7 +180,9 @@ export default function Home() {
       status: 'received',
       notes: '',
     });
-    alert(`تم حفظ الطلب بنجاح! رقم الطلب: ${orderNumber}`);
+
+    // Print receipt after saving
+    printThermalReceipt(order);
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
@@ -368,8 +370,8 @@ export default function Home() {
                   onClick={saveOrder}
                   className="flex-1 flex items-center justify-center gap-2 bg-primary-500 text-white py-3 rounded-lg hover:bg-primary-600 transition-colors font-medium"
                 >
-                  <Save size={20} />
-                  حفظ الطلب
+                  <Printer size={20} />
+                  حفظ وطباعة
                 </button>
               </div>
             </>
@@ -474,17 +476,33 @@ export default function Home() {
     setOrders(filtered);
   };
 
-  const printReceipt = (order: Order) => {
+  const printThermalReceipt = (order: Order) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
 
-    const itemsHtml = order.items.map(item => `
-      <tr>
-        <td style="border-bottom: 1px dashed #ccc; padding: 5px;">${itemTypes[item.itemType]} - ${serviceTypes[item.serviceType]}</td>
-        <td style="border-bottom: 1px dashed #ccc; padding: 5px; text-align: center;">${item.quantity}</td>
-        <td style="border-bottom: 1px dashed #ccc; padding: 5px; text-align: left;">${item.price * item.quantity} ريال</td>
-      </tr>
-    `).join('');
+    const subtotal = order.totalAmount;
+    const vat = Math.round(subtotal * 0.15);
+    const total = subtotal + vat;
+
+    const itemsHtml = order.items.map(item => {
+      const itemTotal = item.price * item.quantity;
+      return `
+        <tr>
+          <td colspan="2" style="font-size: 11px; padding: 4px 0;">
+            ${itemTypes[item.itemType]} - ${serviceTypes[item.serviceType]} (${item.quantity}x)
+          </td>
+          <td style="font-size: 11px; text-align: left; padding: 4px 0;">${itemTotal} ريال</td>
+        </tr>
+      `;
+    }).join('');
+
+    const formattedDate = new Date(order.createdAt).toLocaleString('ar-SA', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -493,45 +511,274 @@ export default function Home() {
         <meta charset="UTF-8">
         <title>فاتورة ${order.orderNumber}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 20px; font-size: 14px; }
-          h1 { text-align: center; margin-bottom: 10px; }
-          .info { margin-bottom: 15px; border-bottom: 1px dashed #ccc; padding-bottom: 10px; }
-          table { width: 100%; margin-bottom: 15px; }
-          th { text-align: right; background: #f5f5f5; padding: 8px; }
-          td { padding: 5px; }
-          .total { font-weight: bold; font-size: 18px; text-align: left; }
-          .tag { border: 2px dashed #000; padding: 10px; margin-top: 20px; }
-          @media print { body { font-size: 12px; } }
+          @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap');
+
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+
+          body {
+            font-family: 'Cairo', Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #000;
+            background: #fff;
+            width: 80mm;
+            padding: 5mm;
+            margin: 0;
+          }
+
+          .receipt {
+            width: 100%;
+          }
+
+          .store-name {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 2px;
+            text-transform: uppercase;
+          }
+
+          .store-subtitle {
+            text-align: center;
+            font-size: 11px;
+            margin-bottom: 8px;
+            color: #666;
+          }
+
+          .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+          }
+
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin: 3px 0;
+          }
+
+          .info-label {
+            color: #666;
+          }
+
+          .info-value {
+            font-weight: 600;
+          }
+
+          table {
+            width: 100%;
+            margin: 8px 0;
+            border-collapse: collapse;
+          }
+
+          th {
+            text-align: right;
+            font-size: 10px;
+            font-weight: 600;
+            border-bottom: 1px dashed #000;
+            padding: 4px 0;
+            color: #666;
+          }
+
+          td {
+            padding: 4px 0;
+            font-size: 11px;
+          }
+
+          .totals {
+            margin: 8px 0;
+          }
+
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin: 2px 0;
+          }
+
+          .total-row.subtotal,
+          .total-row.vat {
+            color: #666;
+          }
+
+          .total-row.grand-total {
+            font-size: 14px;
+            font-weight: 700;
+            margin-top: 4px;
+            padding-top: 4px;
+            border-top: 1px dashed #000;
+          }
+
+          .vat-percentage {
+            font-size: 10px;
+            color: #666;
+          }
+
+          .notes {
+            font-size: 10px;
+            color: #666;
+            background: #f5f5f5;
+            padding: 6px;
+            margin: 8px 0;
+            border-radius: 3px;
+          }
+
+          .pickup-info {
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            margin: 8px 0;
+            padding: 6px;
+            background: #e8f4f8;
+            border-radius: 3px;
+          }
+
+          .footer {
+            text-align: center;
+            font-size: 10px;
+            margin-top: 10px;
+            color: #666;
+          }
+
+          .thank-you {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 4px;
+          }
+
+          .policy {
+            font-size: 9px;
+            line-height: 1.3;
+          }
+
+          .order-number-barcode {
+            text-align: center;
+            margin: 8px 0;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+          }
+
+          @media print {
+            body {
+              margin: 0;
+              padding: 5mm;
+              width: 80mm;
+            }
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
         </style>
       </head>
       <body>
-        <h1>🧺 مغسلة الملابس</h1>
-        <div class="info">
-          <strong>رقم الطلب:</strong> ${order.orderNumber}<br>
-          <strong>العميل:</strong> ${order.customerName}<br>
-          <strong>الهاتف:</strong> ${order.phoneNumber}<br>
-          <strong>تاريخ الاستلام:</strong> ${order.pickupDate}
+        <div class="receipt">
+          <!-- Store Header -->
+          <div class="store-name">🧺 مغسلة الملابس</div>
+          <div class="store-subtitle">خدمة غسيل وتنظيف ملابس احترافية</div>
+
+          <div class="divider"></div>
+
+          <!-- Order Info -->
+          <div class="order-number-barcode">#${order.orderNumber}</div>
+
+          <div class="info-row">
+            <span class="info-label">التاريخ:</span>
+            <span class="info-value">${formattedDate}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">العميل:</span>
+            <span class="info-value">${order.customerName}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">الهاتف:</span>
+            <span class="info-value">${order.phoneNumber}</span>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Items Table -->
+          <table>
+            <tr>
+              <th style="width: 65%">الصنف</th>
+              <th style="width: 35%; text-align: left;">السعر</th>
+            </tr>
+            ${itemsHtml}
+          </table>
+
+          <div class="divider"></div>
+
+          <!-- Totals -->
+          <div class="totals">
+            <div class="total-row subtotal">
+              <span>المجموع:</span>
+              <span>${subtotal} ريال</span>
+            </div>
+            <div class="total-row vat">
+              <span>ضريبة القيمة المضافة (15%):</span>
+              <span>${vat} ريال</span>
+            </div>
+            <div class="total-row grand-total">
+              <span>الإجمالي:</span>
+              <span>${total} ريال</span>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <!-- Pickup Date -->
+          <div class="pickup-info">
+            📅 تاريخ الاستلام: ${order.pickupDate}
+          </div>
+
+          ${order.notes ? `
+          <div class="notes">
+            <strong>ملاحظات:</strong> ${order.notes}
+          </div>
+          ` : ''}
+
+          <div class="divider"></div>
+
+          <!-- Footer -->
+          <div class="footer">
+            <div class="thank-you">شكراً لاختياركم لخدماتنا</div>
+            <div class="policy">
+              سياسة المتجر:<br>
+              - المطالبة بالمغسلة خلال 30 يوم<br>
+              - لا نقبل استرجاع القطع النظيفة<br>
+              - فحص القطع قبل مغادرة المتجر
+            </div>
+            <div style="margin-top: 8px;">
+              📞 هاتف: 0500000000
+            </div>
+          </div>
         </div>
-        <table>
-          <tr>
-            <th>الصنف</th>
-            <th>الكمية</th>
-            <th>السعر</th>
-          </tr>
-          ${itemsHtml}
-        </table>
-        <div class="total">المجموع: ${order.totalAmount} ريال</div>
-        ${order.notes ? `<div style="margin-top: 10px; padding: 5px; background: #f5f5f5;"><strong>ملاحظات:</strong> ${order.notes}</div>` : ''}
-        <div class="tag">
-          <strong>🏷️ بطاقة التعريف</strong><br>
-          رقم: ${order.orderNumber}<br>
-          العميل: ${order.customerName}
-        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() {
+              window.close();
+            };
+          };
+        </script>
       </body>
       </html>
     `);
     printWindow.document.close();
-    printWindow.print();
+  };
+
+  const printReceipt = (order: Order) => {
+    printThermalReceipt(order);
   };
 
   const renderSettings = () => (
@@ -702,6 +949,23 @@ export default function Home() {
         {view === 'settings' && renderSettings()}
         {view === 'reports' && renderReports()}
       </main>
+
+      {/* Print-specific styles */}
+      <style jsx global>{`
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
